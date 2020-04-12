@@ -1,0 +1,9 @@
+.wrapper {    
+	margin-top: 10px;
+	margin-bottom: 20px;
+}
+
+.carousel-item > img {
+    width: 100%;
+    height: auto;
+}
