@@ -1,21 +1,7 @@
 <?php //ProblemList.phpから検索毎に呼ばれるAPI
-require_once 'Env.php';
 session_start();
 
-//日付を書式化
-function date2str($dt) {
-    if (date('Ymd') == date('Ymd', $dt)) {
-       return '今日 '.date('H時i分', $dt);
-    } else if (date('Ymd', strtotime('-1 day')) == date('Ymd', $dt)) {
-        return '昨日 '.date('H時i分', $dt);
-    } else if (date('Ym') == date('Ym', $dt)) {
-        return '今月 '.date('d日', $dt);
-    } else if (date('Y') == date('Y', $dt)) {
-        return date('m月d日', $dt);
-    } else {
-        return date('Y年m月d日', $dt);
-    }
-}
+require_once 'Env.php';
 
 //JSON形式のPOSTデータを受け取る
 $json = file_get_contents("php://input");
@@ -158,10 +144,7 @@ $result['json']['sql'] = $json;
 //$result['sql1']['param'] = $sql1params;
 //$result['param'] = $param;
 
-$dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
     $stmt = $pdo->prepare($sql1);
     $stmt->execute($sql1params);
 

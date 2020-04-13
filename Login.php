@@ -1,6 +1,4 @@
 <?php
-//require 'password.php';   // password_verfy()はphp 5.5.0以降の関数のため、バージョンが古くて使えない場合に使用
-// セッション開始
 session_start();
 
 require_once 'Env.php';
@@ -20,10 +18,7 @@ if (isset($_POST["login"])) {
         $userid = $_POST["userid"];
 
         //ユーザIDとパスワードが入力されていたら認証する
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
             //同一名を探す
             $stmt = $pdo->prepare('SELECT * FROM `userdata` WHERE `name` = ? AND `active` = 1');
             $stmt->execute(array($userid));

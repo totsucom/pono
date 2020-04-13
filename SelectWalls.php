@@ -1,7 +1,4 @@
 <?php
-require_once "php/Mobile_Detect.php";
-$detect = new Mobile_Detect;
-
 session_start();
 
 // ログイン状態チェック
@@ -11,6 +8,8 @@ if (!isset($_SESSION["NAME"])) {
 }
 
 require_once 'Env.php';
+require_once "php/Mobile_Detect.php";
+$detect = new Mobile_Detect;
 
 /*
     //選択した画像をセッション変数で返す
@@ -130,10 +129,7 @@ if (isset($_POST['submit'])) {
 }
 
 //DBに接続してベースとなる壁を読み込む
-$dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
     $sql = "SELECT * FROM `wallpicture` ORDER BY `location`";
     $stmt = $pdo->query($sql);
 
@@ -221,11 +217,22 @@ EOD;
                         $src = $urlpaths['wall_image'].$row['imagefile_t'];
                         $url = $urlpaths['wall_image'].$row['imagefile'];
                         $id = $row['id'];
+                        $locations = '';
+                        foreach (explode(',', $row['location']) as $value) {
+                            if (strlen($value) > 0 && isset($walls[$value])) {
+                                $locations .= $walls[$value];
+                            }
+                        }
+                        if ($locations == $row['name']) {
+                            $s = $locations;
+                        } else {
+                            $s = $locations . '<br>' . htmlspecialchars('"'. $row['name'] . '"', ENT_QUOTES);
+                        }
                         echo <<<EOD
                             <div class="card mb-2 mr-2" style="width:10rem;">
                                 <img class="card-img-top" src="{$src}" alt="壁画像" data-url="{$url}" data-wallid="{$id}">
                                 <div class="card-body">
-                                    <h5 class="card-title">{$row['name']}</h5>
+                                    <h5 class="card-title">{$s}</h5>
                                 </div>
                             </div>
 EOD;

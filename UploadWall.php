@@ -7,6 +7,11 @@ if (!isset($_SESSION["NAME"])) {
     exit;
 }
 
+if (!$_SESSION['MASTER']) {
+    echo 'このページを開く権限がありません';
+    exit();
+}
+
 require_once 'Env.php';
 
 /*
@@ -15,38 +20,6 @@ $_SESSION["EDIT_WALL_TYPE"]     EDIT_WALL_VALUE の内容を示す。'WALL_ID' �
 $_SESSION["EDIT_WALL_VALUE"]    WALL_IDの場合 DB上のwallpicture.id、PROBLEM_IDの場合 DB上のproblem.id
 */
 
-//指定サイズに縮小。スケールは幅に合わせる。縦方向の余白は黒で塗りつぶされるか、上下に均等にはみ出る
-function resizefullwidth($src_img, $src_width, $src_height, $new_width, $new_height) {
-    $image = imagecreatetruecolor($new_width, $new_height);
-
-    //横幅いっぱいを使う。高さで調整
-    $scale = $new_width / $src_width;
-    $h = $src_height * $scale;
-    if ($h >= $new_height) {
-        //高さがはみ出る
-        $sy = (($h - $new_height) / 2) / $scale;
-        $sh = $src_height - ($h - $new_height) / $scale;
-        $dy = 0;
-        $dh = $new_height;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    } else {
-        //上下に余白ができる
-        imagefill($image, 0, 0, imagecolorallocate($image, 0, 0, 0)); //黒で塗りつぶす
-        $sy = 0;
-        $sh = $src_height;
-        $dy = ($new_height - $h) / 2;
-        $dh = $src_height * $scale;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    }
-
-    // 画像のコピーと伸縮
-    imagecopyresampled($image, $src_img, 0, $dy, 0, $sy, $new_width, $dh, $src_width, $sh);
-    return $image;
-}
-
-if (!$_SESSION['MASTER']) {
-    $errorMessage = 'このページを開く権限がありません';
-}
 
 if (!isset($errorMessage) && isset($_GET['wid']) && is_numeric($_GET['wid'])) {
     //編集モード
@@ -61,11 +34,7 @@ if (!isset($errorMessage) && !isset($_SESSION["EDIT_WALL_TYPE"], $_SESSION["EDIT
 if (!isset($errorMessage)) {
     if ($_SESSION["EDIT_WALL_TYPE"] == 'WALL_ID') {
         //壁IDが指定されたパターン
-
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    
             $stmt = $pdo->prepare('SELECT `name`,`location`,`imagefile` FROM `wallpicture` WHERE `id` = ?');
             $stmt->execute(array($_SESSION["EDIT_WALL_VALUE"]));
     
@@ -114,12 +83,7 @@ if (!isset($errorMessage)) {
 
         if ($_SESSION["EDIT_WALL_TYPE"] == 'WALL_ID') {
             //壁IDが指定されたパターン
-    
-            $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
             try {
-                if (!isset($pdo)) {
-                    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-                }    
                 $sql = 'UPDATE `wallpicture` SET `name` = ?, `location` = ? WHERE `id` = ?';
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute(array(
@@ -131,13 +95,7 @@ if (!isset($errorMessage)) {
             }
         } else if ($_SESSION["EDIT_WALL_TYPE"] == 'TMP_PATH') {
             //新規作成で壁のパスが指定されたパターン
-echo 'Hi.';
-            $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
             try {
-                if (!isset($pdo)) {
-                    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-                }
-
                 $sql = 'INSERT INTO `wallpicture` (`name`,`location`,`imagefile`,`imagefile_h`,`imagefile_t`) VALUES (?,?,?,?,?)';
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute(array(
@@ -147,7 +105,6 @@ echo 'Hi.';
                     '',
                     ''));
                 $wallid = $pdo->lastinsertid();  //登録した(DB側でauto_incrementした)IDを$wallidに入れる
-echo ' wallid=',$wallid,' ';
             } catch (PDOException $e) {
                 $errorMessage = 'データベースの接続に失敗しました。'.$e->getMessage();
             }
@@ -207,8 +164,7 @@ EOD;
             exit;
         }
 
-echo 'end';
-        //header("Location: ./WallList.php?msg=" . urlencode('壁を投稿しました'));
+        header("Location: ./WallList.php?msg=" . urlencode('壁を投稿しました'));
         exit;
     }
 }

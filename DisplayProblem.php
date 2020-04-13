@@ -1,5 +1,4 @@
 <?php
-require_once 'Env.php';
 session_start();
 
 // ログイン状態チェック
@@ -15,6 +14,8 @@ if (!isset($_SESSION["NAME"])) {
     exit;
 }
 
+require_once 'Env.php';
+
 //成功メッセージを表示できる
 if (isset($_GET['msg'])) $message = $_GET['msg'];
 
@@ -22,11 +23,7 @@ if (isset($_GET['delete'])) {
     //課題の削除
 
     $pid = $_GET['delete']; //problem id
-    $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
-
     try {
-        $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
         $stmt = $pdo->prepare('SELECT `id`,`userid` FROM `problem` WHERE `id` = ?');
         $stmt->execute(array($pid));
 
@@ -123,7 +120,7 @@ EOD;
             <!-- ページネーション -->
             <div class="col align-self-end pl-1">
                 <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-end pagination-lg my-2" id="pagination">
+                    <ul class="pagination justify-content-end pagination-lg my-2">
                         <li class="page-item disabled" id="item_prev">
                             <a class="page-link" href="#" aria-label="Previous">
                                 <span aria-hidden="true">&laquo;</span>
@@ -225,20 +222,6 @@ EOD;
             </div>
 
             <!-- 課題画像 -->
-<!--
-            <div class="row p-2" id="loading_spin">
-                <div class="spinner-border >spinner-border-sm align-middle" role="status">
-                    <span class="sr-only">Loading...</span>
-                </div>
-                <div class="d-inline align-middle ml-3">Loading...</div>
-            </div>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert" id="loading_alert" style="display:none">
-                <strong>エラー！</strong> 投稿画像を読み込めませんでした
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>                
--->
             <img id="preview" class="img-fluid">
         </div>
         
@@ -355,41 +338,6 @@ EOD;
         var current_index = -1; //検索条件を持ったときの、この条件が成立する problemIdList[current_index] = current_id
         var totalCount = 0;
         var cond_bak = {};
-
-
-        //検索に戻る ボタンがクリックされた
-        /*$('#back-button').on('click', function() {
-            //console.log(JSON.stringify(cond_bak));
-            location.href = 'ProblemList.php?cond=' + encodeURIComponent(window.btoa(JSON.stringify(cond_bak)));
-        });*/
-/*
-        //投稿画像の読み込みを開始する
-        function loadImage() {
-            $('#preview').attr('src', "<?php /* echo $urlpaths['problem_image'], $row['imagefile']; */ ?>");
-        }
-
-        //投稿画像の読み込みに失敗した
-        $('#preview').on('error', function(){
-            $('#preview').removeAttr('src');
-            if (++retry <= 3) {
-                setTimeout(function() {
-                    loadImage();                //リロードする
-                }, (retry - 1) * 3000 + 2000);  //2,5,8秒
-            } else {
-                //あきらめた
-                $('#loading_spin').hide();
-                $('#loading_alert').show();
-            }
-        });
-
-        //投稿画像の読み込みに成功した
-        $('#preview').on('load', function(){
-            $('#loading_spin').hide();
-            $(this).show();
-        });
-*/
-        //1回目の画像読み込みを開始する
-        //loadImage();
 
         //[<<]ボタンがクリックされた
         $('#item_prev').on('click', function () {
@@ -781,7 +729,6 @@ console.log(cond_bak);
 
         //ページネーションを設定する
         function setupPagenation() {
-
             current_index = -1;
             if (startIndex >= 0 && current_id >= 0 && problemIdList.length > 0 && totalCount > 0) {
                 current_index = problemIdList.indexOf(''+current_id);

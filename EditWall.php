@@ -1,9 +1,4 @@
 <?php
-require_once "php/Mobile_Detect.php";
-$detect = new Mobile_Detect;
-
-require_once 'Env.php';
-
 session_start();
 
 // ログイン状態チェック
@@ -12,34 +7,10 @@ if (!isset($_SESSION["NAME"])) {
     exit;
 }
 
-//指定サイズに縮小。スケールは幅に合わせる。縦方向の余白は黒で塗りつぶされるか、上下に均等にはみ出る
-function resizefullwidth($src_img, $src_width, $src_height, $new_width, $new_height) {
-    $image = imagecreatetruecolor($new_width, $new_height);
+require_once 'Env.php';
+require_once "php/Mobile_Detect.php";
+$detect = new Mobile_Detect;
 
-    //横幅いっぱいを使う。高さで調整
-    $scale = $new_width / $src_width;
-    $h = $src_height * $scale;
-    if ($h >= $new_height) {
-        //高さがはみ出る
-        $sy = (($h - $new_height) / 2) / $scale;
-        $sh = $src_height - ($h - $new_height) / $scale;
-        $dy = 0;
-        $dh = $new_height;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    } else {
-        //上下に余白ができる
-        imagefill($image, 0, 0, imagecolorallocate($image, 0, 0, 0)); //黒で塗りつぶす
-        $sy = 0;
-        $sh = $src_height;
-        $dy = ($new_height - $h) / 2;
-        $dh = $src_height * $scale;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    }
-
-    // 画像のコピーと伸縮
-    imagecopyresampled($image, $src_img, 0, $dy, 0, $sy, $new_width, $dh, $src_width, $sh);
-    return $image;
-}
 
 /*
 セッション変数（入力）
@@ -57,11 +28,7 @@ if (!$_SESSION['MASTER']) {
 if (!isset($errorMessage) && isset($_POST['submit'], $_POST['imgb64'])) {
 
     if ($_SESSION["EDIT_WALL_TYPE"] == 'WALL_ID') {
-
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
             //画像ファイル名を読み出す
             $sql = "SELECT `imagefile`,`imagefile_h`,`imagefile_t` FROM `wallpicture` WHERE `id` = ?";
             $stmt = $pdo->prepare($sql);
@@ -149,11 +116,7 @@ if (!isset($errorMessage) && isset($_POST['submit'], $_POST['imgb64'])) {
 else if (!isset($errorMessage)) {
     if ($_SESSION["EDIT_WALL_TYPE"] == 'WALL_ID') {
         //壁画像がIDで指定されている場合
-
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    
             $stmt = $pdo->prepare('SELECT * FROM `wallpicture` WHERE `id` = ?');
             $stmt->execute(array($_SESSION["EDIT_WALL_VALUE"]));
     
@@ -242,7 +205,7 @@ EOD;
         <h3 class="text-center my-3" id="title">壁の編集</h3>
         <div class="row my-2" id="navi-bar">
             <button class="btn btn-secondary ml-1" id="prev-button">戻る</button>
-            <button class="btn btn-primary mr-1 ml-auto" id="next-button">次へ</button>
+            <button class="btn btn-primary mr-1 ml-auto" id="next-button"><?php echo ($_SESSION["EDIT_WALL_TYPE"] == 'TMP_PATH') ? '次へ' : '更新'; ?></button>
         </div>
 
         <canvas class="img-fluid border m-0 p-0" id="canvas"></canvas>

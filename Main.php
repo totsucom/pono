@@ -1,7 +1,4 @@
 <?php
-require_once "php/Mobile_Detect.php";
-$detect = new Mobile_Detect;
-
 session_start();
 
 // ログイン状態チェック
@@ -11,26 +8,13 @@ if (!isset($_SESSION["NAME"])) {
 }
 
 require_once 'Env.php';
+require_once "php/Mobile_Detect.php";
+$detect = new Mobile_Detect;
 
-//日付を書式化
-function date2str($dt) {
-    if (date('Ymd') == date('Ymd', $dt)) {
-       return '今日 '.date('H:i', $dt);
-    } else if (date('Ymd', strtotime('-1 day')) == date('Ymd', $dt)) {
-        return '昨日 '.date('H:i', $dt);
-    } else if (date('Ym') == date('Ym', $dt)) {
-        return '今月'.date('d日 H:i', $dt);
-    } else {
-        return date('Y/m/d', $dt);
-    }
-}
 
 //DBに接続して新しい課題を読み込む
 $newProblem = [];
-$dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
     //気になるグレードを表示する条件
     $grade_cond = '';
     if ($_SESSION["GRADES"] != '') {
@@ -192,35 +176,23 @@ EOD;
         <div class="wrapper mb-5">
             <h3>メニュー</h3>
             <a href="./SelectWalls.php">課題を投稿する</a><br>
-
-            <!-- <a href="./UploadProblem.php?from=main">課題を投稿する</a><br> -->
-
-            <?php
-                /*if ($detect->isMobile()) {
-                    echo '<a href="./EditHolds.php?from=main">課題の編集テスト(mobile)</a>',"\r\n";
-                } else {
-                    echo '<a href="./EditHolds_pc.php?from=main">課題の編集テスト(PC)</a>',"\r\n";
-                }*/
-            ?>
         </div>
 
-        <div class="wrapper mb-5">
-            <h3>管理者メニュー</h3>
-            <a href="./WallList.php">壁写真を管理する</a><br>
+        <?php
+            if ($_SESSION['MASTER']) {
+                echo <<<EOD
+                    <div class="wrapper mb-5">
+                        <h3>管理者メニュー</h3>
+                        <a href="./WallList.php">壁写真を管理</a><br>
+                        <a href="./UpdateWall.php">壁の更新</a><br><br>
+                        <a href="./ponomaster.php">壁マスター</a><br>
+                    </div>
 
-            <!-- <a href="./UploadProblem.php?from=main">課題を投稿する</a><br> -->
+EOD;
+            }
+        ?>
 
-            <?php
-                /*if ($detect->isMobile()) {
-                    echo '<a href="./EditHolds.php?from=main">課題の編集テスト(mobile)</a>',"\r\n";
-                } else {
-                    echo '<a href="./EditHolds_pc.php?from=main">課題の編集テスト(PC)</a>',"\r\n";
-                }*/
-            ?>
-        </div>
-
-
-        <!-- このページのショートカットを表示
+        <!-- このページのショートカットを表示 -->
         <hr>
         <div class="clearfix mb-2">
             <div class="float-left">
@@ -231,7 +203,7 @@ EOD;
             </div>
             <h5>このページへのショートカット</h5>
             <small><?php echo htmlspecialchars($path, ENT_QUOTES); ?></small>
-        </div> -->
+        </div>
     </div>
 
     <script type="text/javascript" src="./js/jquery-3.4.1.min.js"></script>

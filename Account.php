@@ -1,5 +1,4 @@
 <?php
-require_once 'Env.php';
 session_start();
 
 // ログイン状態チェック
@@ -8,6 +7,8 @@ if (!isset($_SESSION["NAME"])) {
     header('Location: Login.php');
     exit;
 }
+
+require_once 'Env.php';
 
 if (isset($_POST['submit1'], $_POST['password'], $_POST['password2'])) {
     $password = $_POST["password"];
@@ -22,11 +23,7 @@ if (isset($_POST['submit1'], $_POST['password'], $_POST['password2'])) {
     } else if(preg_match("/^[!-~]+$/", $password) != 1) {
         $errorMessage = 'パスワードに使用できるのは半角英数字と記号です。';
     } else {
-    
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
             //更新
             $stmt = $pdo->prepare("UPDATE `userdata` SET `password` = ? WHERE `id` = ?");
             $stmt->execute(array(password_hash($password, PASSWORD_DEFAULT), $_SESSION["ID"]));  // パスワードのハッシュ化を行う
@@ -53,10 +50,7 @@ if (isset($_POST['submit1'], $_POST['password'], $_POST['password2'])) {
         if (strlen($favgrades) > 0) $favgrades .= ',';
     }
 
-    $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
     try {
-        $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
         $ar = array();
         $sql = "UPDATE `userdata` SET ";
         if (strlen($dispname) > 0) {
@@ -92,11 +86,7 @@ if (isset($_POST['submit1'], $_POST['password'], $_POST['password2'])) {
 }
 
 //エラーがあっても表示用に読み込む
-$dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
-    if (!isset($pdo)) {
-        $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    }
 
     //同一名を探す
     $stmt = $pdo->prepare('SELECT * FROM `userdata` WHERE `id` = ?');
@@ -261,7 +251,7 @@ EOD;
             </div>
         </form>
     </div>
-
+<!--
     <script type="text/javascript" src="./js/jquery-3.4.1.min.js"></script>
     <script type="text/javascript" src="./js/jquery.cookie.js"></script>
     <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
@@ -269,5 +259,6 @@ EOD;
 
 
     });</script>
+-->
 </body>
 </html>

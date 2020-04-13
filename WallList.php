@@ -9,20 +9,13 @@ if (!isset($_SESSION["NAME"])) {
     exit;
 }
 
+if (!$_SESSION['MASTER']) {
+    echo 'このページを開く権限がありません';
+    exit();
+}
+
 require_once 'Env.php';
 
-//日付を書式化
-function date2str($dt) {
-    if (date('Ymd') == date('Ymd', $dt)) {
-       return '今日 '.date('H:i', $dt);
-    } else if (date('Ymd', strtotime('-1 day')) == date('Ymd', $dt)) {
-        return '昨日 '.date('H:i', $dt);
-    } else if (date('Ym') == date('Ym', $dt)) {
-        return '今月'.date('d日 H:i', $dt);
-    } else {
-        return date('Y/m/d', $dt);
-    }
-}
 
 function safe_delete_wallpic($filename) {
     if ($filename != '') {
@@ -31,10 +24,6 @@ function safe_delete_wallpic($filename) {
             delete($path);
         }
     }
-}
-
-if (!$_SESSION['MASTER']) {
-    $errorMessage = 'このページを開く権限がありません';
 }
 
 
@@ -73,9 +62,7 @@ if (!isset($errorMessage) && isset($_POST['submit'],$_POST['mode'],$_POST['walli
         }
 
         if (isset($sql1)) {
-            $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
             try {
-                $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
                 $stmt = $pdo->prepare($sql1);
                 $stmt->execute($ar);
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -211,14 +198,8 @@ if (!isset($errorMessage) && isset($_POST['submit'],$_POST['mode'],$_POST['walli
 }
 
 if (!isset($errorMessage)) {
-
     //DBに接続してベースとなる壁を読み込む
-    $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
     try {
-        if (!isset($pdo)) {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-        }
-
         $sql = "SELECT * FROM `wallpicture` ORDER BY `location`";
         $stmt = $pdo->query($sql);
 
@@ -317,7 +298,7 @@ EOD;
                             $src = $urlpaths['wall_image'].$row['imagefile_t'].'?'.rand();
                             $url = $urlpaths['wall_image'].$row['imagefile'];
                             $id = $row['id'];
-                            $dts = date2str(strtotime($row['createdon']));
+                            $dts = date2str(strtotime($row['createdon'])) . ' ' . htmlspecialchars($row['name'], ENT_QUOTES);
                             $locations = '';
                             foreach (explode(',', $row['location']) as $value) {
                                 if (strlen($value) > 0 && isset($walls[$value])) {
@@ -338,26 +319,40 @@ EOD;
             </table>
         </form>
 
+        <div class="modal fade" id="testModal2" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <img class="rounded img-fluid d-block" alt="壁画像" id="preview2" data-wallid="">
+                    </div>
+                    <div class="modal-footer row">
+                        <button type="button" class="btn btn-primary col-4 ml-auto" id="use-button">使用する</button>
+                        <button type="button" class="btn btn-secondary col-3" data-dismiss="modal" id="item-close-button2">閉じる</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="modal fade" id="testModal" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-body">
                         <img class="rounded img-fluid d-block" alt="壁画像" id="preview" data-wallid="">
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" id="item-upload-button">アップロード</button>
-                        <button type="button" class="btn btn-primary" id="item-trim-button">トリミング</button>
-                        <button type="button" class="btn btn-danger" id="item-predel-button">削除する</button>
-
-                        <div class="ml-auto mr-2-1 text-danger" id="item-delete-confirm">
-                            削除しますか？
-                            <button type="button" class="btn btn-primary mx-1" id="item-delete-button">はい</button>
-                        </div>
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal" id="item-close-button">閉じる</button>
+                    <div class="modal-footer row">
+                        <select class="custom-select col-4" id="operation-select" name="operation-select" required>
+                            <option value="" selected>メニュー</option>
+                            <option value="edit">内容変更</option>
+                            <option value="trim">トリミング</option>
+                            <option value="delete">削除する</option>
+                        </select>
+                        <button type="button" class="btn btn-primary col-2" id="operation-button" disabled>実行</button>
+                        <button type="button" class="btn btn-secondary col-3 ml-auto" data-dismiss="modal" id="item-close-button">閉じる</button>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 
     <script type="text/javascript" src="./js/jquery-3.4.1.min.js"></script>
@@ -403,14 +398,12 @@ EOD;
                         height *= scale;
 
                         ImgB64Resize(e.target.result, width, height, rotation, function(img_b64) {
-                            //const preview = document.getElementById('preview');
-                            //preview.src = img_b64;
-                            $('#preview').attr('src', img_b64).data('wallid', '');
+                            $('#preview2').attr('src', img_b64).data('wallid', '');
                             $('#item-upload-button').show();
                             $('#item-trim-button').hide();
                             $('#item-predel-button').hide();
                             $('#item-delete-confirm').hide();
-                            $('#testModal').modal('show');
+                            $('#testModal2').modal('show');
                         });
                     }
                     reader.readAsDataURL(e.target.files[0]);
@@ -425,6 +418,19 @@ EOD;
             //アップロード処理
             $('#mode').val('upload');
             $('button[name="submit"]').trigger('click');
+        });
+
+        //使用するボタンがクリックされた
+        $('#use-button').on('click', function () {
+            $('#mode').val('upload');
+            $('button[name="submit"]').trigger('click');
+        });
+
+        //モーダルの閉じるボタン
+        $('#item-close-button2').on('click', function () {
+            //選択されなかった
+            $('#wall_picture_label').html('壁写真を選択...');
+            $('input[type=file]').val('');
         });
 
         //参考サイト https://qiita.com/yasumodev/items/ec684e81ee2eac4bdddd
@@ -473,42 +479,45 @@ EOD;
         //画像をタッチしたらプレビュー
         $('#walls_table').on('click', 'img', function () {
             //画像情報を渡して表示
-            $('#preview').attr('src', $(this).data('url')).data('wallid', $(this).data('wallid'));//壁IDを記憶
-            $('#item-upload-button').hide();
-            $('#item-trim-button').show();
-            $('#item-predel-button').show();
-            $('#item-delete-confirm').hide();
+            $('#preview').attr('src', $(this).data('url') + '?' + Math.random()).data('wallid', $(this).data('wallid'));//壁IDを記憶
+            $('#operation-select').val('');
+            $('#operation-button').prop('disabled', true).removeClass('btn-danger').addClass('btn-primary');
             $('#testModal').modal('show');
         });
 
-        //モーダル表示の壁画像をトリミング
-        $('#item-trim-button').on('click', function () {
-            //トリミング処理
-            $('#mode').val('trim');
-            $('#wallid').val($('#preview').data('wallid'));
-            $('button[name="submit"]').trigger('click');
+        //オペレーションが選択された
+        $('#operation-select').on('change', function () {
+            var op = $(this).val();
+            //実行ボタンの属性を変更する
+            if (op == '') {
+                $('#operation-button').prop('disabled', true).removeClass('btn-danger').addClass('btn-primary');
+            } else if (op == 'delete') {
+                $('#operation-button').removeAttr('disabled').removeClass('btn-primary').addClass('btn-danger');
+            } else {
+                $('#operation-button').removeAttr('disabled').removeClass('btn-danger').addClass('btn-primary');
+            }
         });
 
-        //モーダル表示の壁画像を削除する？
-        $('#item-predel-button').on('click', function () {
-            $('#item-trim-button').hide();
-            $('#item-predel-button').hide();
-            $('#item-delete-confirm').show();
-        });
-
-        //モーダル表示の壁画像を削除する
-        $('#item-delete-button').on('click', function () {
-            //削除処理
-            $('#mode').val('delete');
-            $('#wallid').val($('#preview').data('wallid'));
-            $('button[name="submit"]').trigger('click');
+        $('#operation-button').on('click', function () {
+            var op = $('#operation-select').val();
+            if (op == 'edit') {
+                //内容変更処理
+                window.location = './UploadWall.php?wid=' + $('#preview').data('wallid');
+            } else if (op == 'trim') {
+                //トリミング処理
+                $('#mode').val('trim');
+                $('#wallid').val($('#preview').data('wallid'));
+                $('button[name="submit"]').trigger('click');
+            } else if (op == 'delete') {
+                //削除処理
+                $('#mode').val('delete');
+                $('#wallid').val($('#preview').data('wallid'));
+                $('button[name="submit"]').trigger('click');
+            }
         });
 
         //モーダルの閉じるボタン
         $('#item-close-button').on('click', function () {
-            //選択されなかった
-            $('#wall_picture_label').html('壁写真を選択...');
-            $('input[type=file]').val('');
         });
 
         //チェックボックスが選択された

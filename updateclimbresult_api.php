@@ -1,6 +1,7 @@
 <?php //DisplayProblem.phpから結果をタップされる毎に呼ばれるAPI
-require_once 'Env.php';
 session_start();
+
+require_once 'Env.php';
 
 //JSON形式のPOSTデータを受け取る
 $json = file_get_contents("php://input");
@@ -19,10 +20,7 @@ $climbed = $param['climbed'];
 if (!is_numeric($problemid) || !is_numeric($climbed)) exit;
 
 $result = [];
-$dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
     if ($climbed == -1) {
         //レコードを削除
         $sql = 'DELETE FROM `climb` WHERE `userid` = ? AND `problemid` = ?';

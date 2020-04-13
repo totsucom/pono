@@ -1,5 +1,4 @@
 <?php
-// セッション開始
 session_start();
 
 require_once 'Env.php';
@@ -18,11 +17,7 @@ if (isset($_POST["signup"], $_POST["userid"], $_POST["password"], $_POST["passwo
     }
 
     if (!isset($errorMessage)) {
-
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-
             //トランザクション開始
             $pdo->beginTransaction(); 
 
@@ -52,9 +47,8 @@ if (isset($_POST["signup"], $_POST["userid"], $_POST["password"], $_POST["passwo
                     } else {
 
                         //登録
-                        $stmt = $pdo->prepare("INSERT INTO `userdata`(`active`, `name`, `password`) VALUES (?, ?, ?)");
-                        $stmt->execute(array(1, $userid, password_hash($password, PASSWORD_DEFAULT)));  // パスワードのハッシュ化を行う
-                        //$id = $pdo->lastinsertid();  // 登録した(DB側でauto_incrementした)IDを$useridに入れる
+                        $stmt = $pdo->prepare("INSERT INTO `userdata`(`active`, `master`, `name`, `password`) VALUES (?, ?, ?, ?)");
+                        $stmt->execute(array(1, 0, $userid, password_hash($password, PASSWORD_DEFAULT)));  // パスワードのハッシュ化を行う
 
                         //コミット
                         $pdo->commit();

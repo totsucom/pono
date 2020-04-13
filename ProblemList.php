@@ -1,5 +1,4 @@
 <?php
-require_once 'Env.php';
 session_start();
 
 // ログイン状態チェック
@@ -14,6 +13,8 @@ if (!isset($_SESSION["NAME"])) {
     }
     exit;
 }
+
+require_once 'Env.php';
 ?>
 
 <!DOCTYPE html>

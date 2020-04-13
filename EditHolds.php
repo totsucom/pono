@@ -1,9 +1,4 @@
 <?php
-require_once "php/Mobile_Detect.php";
-$detect = new Mobile_Detect;
-
-require_once 'Env.php';
-
 session_start();
 
 // ログイン状態チェック
@@ -12,34 +7,9 @@ if (!isset($_SESSION["NAME"])) {
     exit;
 }
 
-//指定サイズに縮小。スケールは幅に合わせる。縦方向の余白は黒で塗りつぶされるか、上下に均等にはみ出る
-function resizefullwidth($src_img, $src_width, $src_height, $new_width, $new_height) {
-    $image = imagecreatetruecolor($new_width, $new_height);
-
-    //横幅いっぱいを使う。高さで調整
-    $scale = $new_width / $src_width;
-    $h = $src_height * $scale;
-    if ($h >= $new_height) {
-        //高さがはみ出る
-        $sy = (($h - $new_height) / 2) / $scale;
-        $sh = $src_height - ($h - $new_height) / $scale;
-        $dy = 0;
-        $dh = $new_height;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    } else {
-        //上下に余白ができる
-        imagefill($image, 0, 0, imagecolorallocate($image, 0, 0, 0)); //黒で塗りつぶす
-        $sy = 0;
-        $sh = $src_height;
-        $dy = ($new_height - $h) / 2;
-        $dh = $src_height * $scale;
-        //echo "${h} ${new_height}   sy=${sy} sh=${sh} dy=${dy} dh=${dh}";
-    }
-
-    // 画像のコピーと伸縮
-    imagecopyresampled($image, $src_img, 0, $dy, 0, $sy, $new_width, $dh, $src_width, $sh);
-    return $image;
-}
+require_once 'Env.php';
+require_once "php/Mobile_Detect.php";
+$detect = new Mobile_Detect;
 
 if (isset($_GET['pid']) && is_numeric($_GET['pid'])) {
     //編集モード
@@ -79,10 +49,7 @@ if (!isset($errorMessage) && isset($_POST['submit'], $_POST['primitives'], $_POS
         }
     } else {
         //編集モード
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    
             //投稿されたパラメータをデータベースに保存
             $sql = 'UPDATE `problem` SET `primitives`=?, `trim_b`=? WHERE `id`=?';
             $stmt = $pdo->prepare($sql);
@@ -160,11 +127,7 @@ if (!isset($errorMessage) && isset($_POST['submit'], $_POST['primitives'], $_POS
 else if (!isset($errorMessage)) {
     if ($_SESSION["EDIT_BASE_TYPE"] == 'WALL_ID') {
         //壁画像がIDで指定されている場合
-
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    
             $stmt = $pdo->prepare('SELECT * FROM `wallpicture` WHERE `id` = ?');
             $stmt->execute(array($_SESSION["EDIT_BASE_VALUE"]));
     
@@ -194,10 +157,7 @@ else if (!isset($errorMessage)) {
     } else if ($_SESSION["EDIT_BASE_TYPE"] == 'PROBLEM_ID') {
 echo 'PROBLEM_ID=',$_SESSION["EDIT_BASE_VALUE"];
         //編集モードで課題IDで指定されている場合
-        $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
         try {
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    
             $stmt = $pdo->prepare('SELECT * FROM `problem` WHERE `id` = ?');
             $stmt->execute(array($_SESSION["EDIT_BASE_VALUE"]));
     
@@ -233,7 +193,6 @@ echo 'PROBLEM_ID=',$_SESSION["EDIT_BASE_VALUE"];
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -415,7 +374,6 @@ EOD;
             const zoomMax = 3.0;
             const zoomMin = 0.2;
             
-
             function prepareCanvas() {
                 $('#canvas').hide();    //消さないとwindow.heightがページの高さを指してしまう
                 $('#tools').show();     //高さ計測のため表示
