@@ -6,7 +6,9 @@
 
 
 //ベースURL
-$baseurl = 'http://' . gethostbyname(gethostbyaddr('127.0.0.1')) . '/pono/';
+$baseurl = (DIRECTORY_SEPARATOR == '\\')
+     ? ('http://' . gethostbyname(gethostbyaddr('127.0.0.1')) . '/pono/')
+     : ('http://' . gethostbyname('raspberrypi.local') . '/pono/');
 
 //データベース
 $db['host'] = "localhost";  // DBサーバのURL
@@ -14,10 +16,15 @@ $db['user'] = "ponophp";    // ユーザー名
 $db['pass'] = "ia256";      // ユーザー名のパスワード
 $db['dbname'] = "pono";     // データベース名
 
-//コマンドラインPHP(パスが通っていれば php だけでもOK)
+//コマンドラインPHP(パスが通っていれば php だけでもOK) ※現在使用無し
 $phpcommand = (DIRECTORY_SEPARATOR == '\\')
     ? 'c:\\php7.3.7\\php.exe'
     : 'php';
+
+//コマンドラインffmpeg(windows時はフルパス必須)
+$ffmpegcommand = (DIRECTORY_SEPARATOR == '\\')
+    ? '"C:\Program Files\ffmpeg\bin\ffmpeg.exe"'
+    : 'ffmpeg';
 
 //投稿された課題画像
 $directories['problem_image'] = (DIRECTORY_SEPARATOR == '\\')
@@ -36,6 +43,12 @@ $directories['tmp'] = (DIRECTORY_SEPARATOR == '\\')
     ? "C:\\inetpub\\wwwroot\\pono\\tmp\\"
     : "/var/www/html/pono/tmp/";
 $urlpaths['tmp'] = "./tmp/";  
+
+//投稿された完登動画
+$directories['comp_movie'] = (DIRECTORY_SEPARATOR == '\\')
+    ? "C:\\inetpub\\wwwroot\\pono\\movies\\"
+    : "/var/www/html/pono/movies/";
+$urlpaths['comp_movie'] = "./movies/";  
 
 //課題のヘッドラインイメージ保存サイズ
 $headimagesize['x'] = 800;
@@ -58,14 +71,19 @@ $grades['6'] = "６級";
 
 //壁を読み込む
 //$wall[プログラムで扱う値] = 表示名;  ※'プログラムで扱う値'に ',' は使用しないこと！ 
-$walls= [];
+$walls = [];            //有効な壁
+$disabledWalls = [];    //無効な壁
 $dsn = sprintf('mysql: host=%s; dbname=%s; charset=utf8', $db['host'], $db['dbname']);
 try {
     $pdo = new PDO($dsn, $db['user'], $db['pass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION));
-    $sql = "SELECT `tag`,`name` FROM `walls` WHERE `active` = 1 ORDER BY `disporder`";
+    $sql = "SELECT `active`,`tag`,`name` FROM `walls` ORDER BY `disporder`";
     $stmt = $pdo->query($sql);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $walls[$row['tag']] = $row['name'];
+        if ($row['active'] == 1) {
+            $walls[$row['tag']] = $row['name'];
+        } else {
+            $disabledWalls[$row['tag']] = $row['name'];
+        }
     }
 } catch (PDOException $e) {
     echo 'データベースエラー<br>' . htmlspecialchars($e->getMessage(), ENT_QUOTES);
@@ -129,3 +147,25 @@ function resizefullwidth($src_img, $src_width, $src_height, $new_width, $new_hei
     imagecopyresampled($image, $src_img, 0, $dy, 0, $sy, $new_width, $dh, $src_width, $sh);
     return $image;
 }
+
+
+/**
+ * createUrl
+ * URLを作成する。パラメータはarで渡す。値はurlencodeとbase64encodeされます。
+ *
+ * @param  mixed $baseurl
+ * @param  mixed $ar
+ * @return string
+ */
+function createUrl($baseurl, $ar) {
+    foreach ($ar as $key => $value) {
+        if (!isset($url)) {
+            $url = $baseurl . '?';
+        } else {
+            $url .= '&';
+        }
+        $baseurl .= $key . '=' . urlencode(base64_encode($value));
+    }
+    return $baseurl;
+}
+

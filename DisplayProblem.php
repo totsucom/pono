@@ -1,51 +1,128 @@
 <?php
 session_start();
 
+//GETパラメータ変換
+if (isset($_GET['pid']))    $problemid = base64_decode(urldecode($_GET['pid'])); //表示する課題ID
+if (isset($_GET['msg']))    $message = base64_decode(urldecode($_GET['msg']));
+if (isset($_GET['emsg']))   $errorMessage = base64_decode(urldecode($_GET['emsg']));
+if (isset($_GET['delete'])) $delete = base64_decode(urldecode($_GET['delete'])); //削除する場合の課題ID
+if (isset($_GET['cond']))   $cond = base64_decode(urldecode($_GET['cond']));     //検索からとんできた場合に条件が入る
+
+
+
+require_once 'Env.php';
+
 // ログイン状態チェック
 if (!isset($_SESSION["NAME"])) {
 
-    if (isset($_GET['pid'])) {
+    if (isset($pid)) {
         //ログイン後にここに戻れるようにbackパラメータにURLを渡す
-        $path = urlencode($baseurl.basename(__FILE__).'?pid='.$_GET['pid']);
-        header('Location: Login.php?back='.$path);
+        $backurl = createurl($baseurl & 'DisplayProblem.php', array('pid'=>$pid));
+        header('Location: ' . createurl($baseurl & 'Login.php', array('back'=>$backurl)));
     } else {
-        header('Location: Login.php');
+        header("Location: ${baseurl}Login.php");
     }
     exit;
 }
 
-require_once 'Env.php';
+//完登動画がポストされた
+if (!isset($errorMessage) &&
+    isset($_POST['submit2'], $_POST['pid'], $_FILES['comp_movie']) && is_numeric($_POST['pid']) && $_FILES['comp_movie']['size'] !== 0) {
 
-//成功メッセージを表示できる
-if (isset($_GET['msg'])) $message = $_GET['msg'];
+    if ($_FILES['comp_movie']['error'] == 2) {
+        $errorMessage = '動画の容量が大きすぎです（最大100MB）';
+    }
 
-if (isset($_GET['delete'])) {
-    //課題の削除
+    if (!isset($errorMessage)) {
+        //一時ファイルに保存
+        $ext = pathinfo($_FILES['comp_movie']['name'])['extension'];
+        $s = $_POST['pid'] . uniqid('_m_') . '.';
+        $moviePath = $directories['comp_movie'] . $s . $ext;    //動画保存先
+        $thumbPath = $directories['comp_movie'] . $s . 'jpg';    //サムネイル画像保存先
+        if (!move_uploaded_file($_FILES['comp_movie']['tmp_name'], $moviePath)) {
+            $errorMessage = '動画をアップロードできませんでした';
+        }
+    }
 
-    $pid = $_GET['delete']; //problem id
-    try {
-        $stmt = $pdo->prepare('SELECT `id`,`userid` FROM `problem` WHERE `id` = ?');
-        $stmt->execute(array($pid));
+    if (!isset($errorMessage)) {
+        //サムネイルがちゃんと生成できるかわからないが、とりあえずデータベースに書き込む
+        try {
+            $stmt = $pdo->prepare('INSERT INTO `climbmovie` (`problemid`,`userid`,`moviefile`,`imagefile_t`) VALUES (?,?,?,?)');
+            $stmt->execute(array(
+                $_POST['pid'],
+                $_SESSION['ID'],
+                basename($moviePath),
+                basename($thumbPath)));
+        } catch (PDOException $e) {
+            $errorMessage = 'データベースエラー。' . $e->getMessage();  //デバッグ
+            unlink($moviePath); //動画を削除
+        }
+    }
 
-        //$row[]に投稿者を読み込む
-        if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if ($row['userid'] == $_SESSION["ID"]) {
-                
-                //ユーザーと投稿者が一致するので削除を実行
-                $stmt = $pdo->prepare('DELETE FROM `problem` WHERE `id` = ?');
-                $stmt->execute(array($pid));
+    if (!isset($errorMessage)) {
 
-                $successMessage = '課題 No.'.$pid.' を削除しました';
-            } else {
-                $errorMessage = '指定された課題を削除する権限がありません';
-            }
+        //サムネイル作成プログラムを非同期で実行
+        if (DIRECTORY_SEPARATOR == '\\') {
+            //Windows時
+            $cmd = "start ${phpcommand} generatemoviethumbnail.php " . escapeshellarg($moviePath) . ' ' . escapeshellarg($thumbPath);
+            //echo htmlspecialchars($cmd, ENT_QUOTES);
+            $fp = popen($cmd, 'r');
+            pclose($fp);
         } else {
-            $errorMessage = '指定された課題が見つかりませんでした';
+            //Linux
+            exec("${phpcommand} test.php ${moviePath} ${thumbPath} > /dev/null &");
+        }
+
+        $message = '完登動画を投稿しました';
+    }
+
+    //フォームの再送信回避のため、GETで自身を呼びなおす。パラメータも持っていく
+    $ar = [];
+    if (isset($_GET['pid']))  $ar['pid'] = $_GET['pid'];
+    if (isset($message))      $ar['msg'] = $message;
+    if (isset($errorMessage)) $ar['emsg'] = $errorMessage;
+    header('Location: ' . createurl($baseurl & 'DisplayProblem.php', $ar));
+    exit();
+}
+
+//課題の削除
+if (isset($delete)) {
+    try {
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('SELECT `id`,`userid` FROM `problem` WHERE `id` = ?');
+            $stmt->execute(array($delete));
+
+            if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if ($row['userid'] == $_SESSION["ID"]) {
+                    
+                    //ユーザーと投稿者が一致するので削除を実行
+                    $stmt = $pdo->prepare('DELETE FROM `problem` WHERE `id` = ?');
+                    $stmt->execute(array($delete));
+
+                    $message = '課題 No.'.$delete.' を削除しました';
+                } else {
+                    $errorMessage = '指定された課題を削除する権限がありません';
+                }
+            } else {
+                $errorMessage = '指定された課題が見つかりませんでした';
+            }
+            $pdo->commit();
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            $errorMessage = 'データベースエラー。' . $e->getMessage();  //デバッグ
         }
     } catch (PDOException $e) {
-        $errorMessage = 'データベースエラー';
-        echo $e->getMessage();  //デバッグ
+        $errorMessage = 'データベースエラー。' . $e->getMessage();  //デバッグ
     }
+
+    //フォームの再送信回避のため、GETで自身を呼びなおす。パラメータも持っていく
+    $ar = [];
+    if (isset($_GET['pid']))  $ar['pid'] = $_GET['pid'];
+    if (isset($message))      $ar['msg'] = $message;
+    if (isset($errorMessage)) $ar['emsg'] = $errorMessage;
+    header('Location: ' . createurl($baseurl & 'DisplayProblem.php', $ar));
+    exit();
 }
 ?>
 
@@ -81,18 +158,6 @@ if (isset($_GET['delete'])) {
 
     <div class = "container">
         <?php
-            if (isset($message)) {
-                //エラーのないときは使い方を表示
-                echo <<<EOD
-                    <div class="alert alert-info alert-dismissible fade show" role="alert">
-                        <strong>成功！</strong> {$message}
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>                
-
-EOD;
-            }
             if (isset($errorMessage)) {
                 //エラー
                 $msg = htmlspecialchars($errorMessage, ENT_QUOTES);
@@ -103,12 +168,19 @@ EOD;
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
-                </div>
-            </body>
-        </html>
 
 EOD;
-                exit; //エラーの場合はここで終わり
+            } else if (isset($message)) {
+                $msg = htmlspecialchars($message, ENT_QUOTES);
+                echo <<<EOD
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <strong>成功！</strong> {$msg}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>                
+
+EOD;
             }
         ?>
         
@@ -224,7 +296,32 @@ EOD;
             <!-- 課題画像 -->
             <img id="preview" class="img-fluid">
         </div>
-        
+
+        <!-- 投稿動画 -->
+        <h3 id="movies_title">完登動画</h3>
+        <div class="row justify-content-center mb-5" id="movies_body">
+        </div>
+
+        <div class="wrapper mb-5">
+            <form class="form mb-5" action="#" method="post" id="form2" enctype="multipart/form-data">
+                <div class="col-12">
+                    <!-- 完登動画の選択 -->
+                    <div class="custom-file overflow-hidden align-middle col-9" id="input-file">
+                        <input type="file" class="custom-file-input" name="comp_movie" id="comp_movie" accept="video/*">
+                        <label class="custom-file-label" for="comp_movie" id="comp_movie_label">完登動画を選択...</label>
+                        <div class="invalid-feedback">ファイルが選択されていません</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary align-middle" name="submit2" id="submit2" disabled>投稿</button>
+                    <div class="spinner-border >spinner-border-sm align-middle" role="status" id="uploading_spin" style="display:none">
+                        <span class="sr-only"></span>
+                    </div>
+                </div>
+                <div class="text-danger ml-3"　id="size_alert" style="display:none">ファイルが大きすぎます。最大100MBです。</div>
+                <div class="text-info ml-3">完登動画は公開されます</div>
+                <input type="HIDDEN" name="pid" id="pid">
+            </form>
+        </div>
+
         <!-- 投稿者メニュー -->
         <div class="wrapper mb-5" id="usermenu" style="display:none">
             <div class="col-12">
@@ -234,7 +331,7 @@ EOD;
                     <option value="editwall">壁を編集する</option>
                     <option value="delete">削除する</option>
                 </select>
-                <button type="button" class="btn btn-secondary" id="exebtn" disabled>実行</button>
+                <button type="button" class="btn btn-primary" id="exebtn" disabled>実行</button>
             </div>
             <div class="col-12 mt-2 mb-5" id="confdelete" style="display:none">
                 <div class="text-danger d-inline ml-1">本当に削除しますか？</div>
@@ -457,6 +554,56 @@ EOD;
             });
         });
 
+        //投稿直後はサムネイルが完成していないので読み込みに失敗することがある
+        //そのため１回目の失敗だけリロード処理を行う
+        $('#movies_body').on('error', 'img', function () {
+            if ($(this).data('reload')) {
+            } else {
+                $(this).data('reload', 1);
+                setTimeout(function () {
+                    $(this).attr('src', $(this).attr('src'));
+                }, 4000);
+            }
+        });
+
+        //ブラウザの戻るで戻ってきて同じ動画ファイルを選択したときにchangeイベントが
+        //発生しないのを防ぐために、毎回クリアする
+        $('#comp_movie').val('');
+
+        //投稿用の動画が選択された
+        $('#comp_movie').on('change', function (e) {
+            if (e.target.files.length == 0) {
+                //選択されなかった
+                $('#comp_movie_label').html('完登動画を選択...');
+                $('#submit2').prop('disabled', true);
+                $('#size_alert').hide();
+            } else {
+                if (e.target.files[0].size > 100000000) { //最大100MB
+                    //サイズでかすぎ
+                    $('#comp_movie_label').html('完登動画を選択...');
+                    $('#submit2').prop('disabled', true);
+                    $('#size_alert').show();
+                } else {
+                    var fileName = e.target.files[0].name;
+                    $('#comp_movie_label').html(fileName);
+                    $('#submit2').removeAttr('disabled');
+                    $('#size_alert').hide();
+                }
+            }
+        });
+
+        //完登動画投稿前の処理
+        $('#form2').submit(function(){
+
+            //スピンを回す
+            $('#uploading_spin').show();
+
+            //課題IDを記憶
+            $('#pid').val(current_id);
+
+            return true; //falseでキャンセル
+        });
+
         //投稿者メニューが変更された
         $('#operation').on('change', function () {
             if ($(this).val() != '') {
@@ -540,7 +687,6 @@ EOD;
                     } else {
                         $('#comment_frame').hide();
                     }
-console.log("climbed=" + data1.climbed);
                     $('input[name="radio_climb"]').val([data1.climbed]).removeAttr('disabled');
                     $('#preview').attr('src', data1.imagefile + '?' + Math.random());
                     if (data1.userid == <?php echo $_SESSION["ID"]; ?>) {
@@ -548,10 +694,26 @@ console.log("climbed=" + data1.climbed);
                     } else {
                         $('#usermenu').hide();
                     }
-console.log(cond_bak);
-                    //var path = '<?php echo $baseurl.basename(__FILE__), '?pid='; ?>' + current_id + "&cond=" + encodeURIComponent(window.btoa(JSON.stringify(cond_bak)));
-                    //$('#qrcode').attr('src', 'qrgen.php?text=' + encodeURI(path));
-                    //$('#qrcode_path').html(htmlEscape(path));
+
+                    var html = '';
+                    data1.movies.forEach(function (m) {
+                        html += '<div class="card mb-2 mr-2" style="width:10rem;">';
+                        html += '<a href="' + m.moviefile + '">';
+                        html += ' <img class="card-img-top" src="' + m.imagefile_t + '" alt="完登動画" data-url="' + m.moviefile + '">';
+                        html += '</a>';
+                        html += ' <div class="card-body">';
+                        html += '  <h5 class="card-title">' + m.name + '</h5>';
+                        html += ' </div>';
+                        html += '</div>';
+                    });
+                    $('#movies_body').html(html);
+                    if (html == '') {
+                        $('#movies_title').hide();;
+                        $('#movies_body').hide();
+                    } else {
+                        $('#movies_title').show();
+                        $('#movies_body').show();
+                    }
 
                     var path = '<?php echo $baseurl.basename(__FILE__).'?pid='; ?>' + data1.problemid;
                     $('#qrcode').attr('src', 'qrgen.php?text=' + encodeURI(path));
@@ -575,6 +737,8 @@ console.log(cond_bak);
                     $('#comment').html('');
                     $('input[name="radio_climb"]').val(-1).attr('disabled', 'disabled');
                     $('#preview').attr('src', '');
+                    $('#movies_title').show();
+                    $('#movies_body').show();
                     $('#usermenu').hide();
                     var path = '<?php echo $baseurl.basename(__FILE__); ?>';
                     $('#qrcode').attr('src', 'qrgen.php?text=' + encodeURI(path));
@@ -603,6 +767,8 @@ console.log(cond_bak);
                 $('#comment').html('');
                 $('input[name="radio_climb"]').val(-1).attr('disabled', 'disabled');
                 $('#preview').attr('src', '');
+                $('#movies_title').hide();
+                $('#movies_body').hide();
                 $('#usermenu').hide();
                 var path = '<?php echo $baseurl.basename(__FILE__); ?>';
                 $('#qrcode').attr('src', 'qrgen.php?text=' + encodeURI(path));
@@ -756,29 +922,11 @@ console.log(cond_bak);
             }
         }
 
-
-
-
-
-
-
-
-
-        //GETのcondパラメータで検索条件が渡された場合、条件に応じて「隠しUI」を変更する
         function setupCond() {
-            //var s = $.cookie('cond_bak');
-
-            var s;
-            <?php
-                if (!isset($_GET['cond'])) {
-                    echo "s = $.cookie('cond_bak');";
-                } else {
-                    echo "s = '" . base64_decode($_GET['cond']) . "'";
-                }
-            ?>
+            //検索パラメータをGETもしくはcookieから取得する
+            var s = <?php echo isset($cond) ? "'".$cond."'" : "$.cookie('cond_bak')"; ?>;
             if (s) {
                 var j = JSON.parse(s);
-                //console.log(j);
 
                 startIndex = j.index;
 

@@ -277,8 +277,8 @@ EOD;
             <!-- 投稿ボタン -->
             <button class="btn btn-primary align-middle" type="submit" name="submit" style="display:none"></button>
 
-            <h5 class="text-center">壁写真の一覧</h5>
-            <div class="my-3 text-secondary">ボルダーが課題作成時に使用する、ベースとなる壁写真を管理します。</div>
+            <h5 class="text-center">ベースの壁写真の一覧</h5>
+            <div class="my-3 text-info">ボルダーが課題作成時に使用する、ベースとなる壁写真を管理します。</div>
 
             <!-- 選択後メニュー -->
             <div class="row" id="select-menu" style="display:none">
@@ -325,9 +325,12 @@ EOD;
                     <div class="modal-body">
                         <img class="rounded img-fluid d-block" alt="壁画像" id="preview2" data-wallid="">
                     </div>
-                    <div class="modal-footer row">
-                        <button type="button" class="btn btn-primary col-4 ml-auto" id="use-button">使用する</button>
-                        <button type="button" class="btn btn-secondary col-3" data-dismiss="modal" id="item-close-button2">閉じる</button>
+                    <div class="modal-footer">
+                        <div class="spinner-border >spinner-border-sm align-middle ml-auto" role="status" id="uploading_spin" style="display:none">
+                            <span class="sr-only"></span>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="use-button">使用する</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" id="item-close-button2">閉じる</button>
                     </div>
                 </div>
             </div>
@@ -346,7 +349,7 @@ EOD;
                             <option value="trim">トリミング</option>
                             <option value="delete">削除する</option>
                         </select>
-                        <button type="button" class="btn btn-primary col-2" id="operation-button" disabled>実行</button>
+                        <button type="button" class="btn btn-primary col-3" id="operation-button" disabled>実行</button>
                         <button type="button" class="btn btn-secondary col-3 ml-auto" data-dismiss="modal" id="item-close-button">閉じる</button>
                     </div>
                 </div>
@@ -383,28 +386,29 @@ EOD;
                     //プレビューのために画像をロード
                     var reader = new FileReader();
                     reader.onload = function (e) {
+                        if (exif !== false) {
+                            //必要に応じて回転
+                            var width, height;
+                            if (typeof exif.ImageWidth !== 'undefined') {
+                                width = exif.ImageWidth;
+                                height = exif.ImageHeight;
+                            } else {
+                                width = exif.PixelXDimension;
+                                height = exif.PixelYDimension;
+                            }
+                            var scale = 800 / width; //スマホの画像はでかいので、回転ついでに幅800に縮小
+                            width = 800;
+                            height *= scale;
 
-                        //必要に応じて回転
-                        var width, height;
-                        if (typeof exif.ImageWidth !== 'undefined') {
-                            width = exif.ImageWidth;
-                            height = exif.ImageHeight;
+                            ImgB64Resize(e.target.result, width, height, rotation, function(img_b64) {
+                                $('#preview2').attr('src', img_b64).data('wallid', '');
+                                $('#testModal2').modal('show');
+                            });
                         } else {
-                            width = exif.PixelXDimension;
-                            height = exif.PixelYDimension;
-                        }
-                        var scale = 800 / width; //スマホの画像はでかいので、回転ついでに幅800に縮小
-                        width = 800;
-                        height *= scale;
-
-                        ImgB64Resize(e.target.result, width, height, rotation, function(img_b64) {
-                            $('#preview2').attr('src', img_b64).data('wallid', '');
-                            $('#item-upload-button').show();
-                            $('#item-trim-button').hide();
-                            $('#item-predel-button').hide();
-                            $('#item-delete-confirm').hide();
+                            //Exif情報をとれない場合はそのまま表示
+                            $('#preview2').attr('src', e.target.result);
                             $('#testModal2').modal('show');
-                        });
+                        }
                     }
                     reader.readAsDataURL(e.target.files[0]);
                     var fileName = e.target.files[0].name;
@@ -413,15 +417,12 @@ EOD;
             }
         });
 
-        //モーダル表示の選択画像をアップロード
-        $('#item-upload-button').on('click', function () {
-            //アップロード処理
-            $('#mode').val('upload');
-            $('button[name="submit"]').trigger('click');
-        });
-
         //使用するボタンがクリックされた
         $('#use-button').on('click', function () {
+            //スピンを回す
+            $('#uploading_spin').show();
+
+            //アップロード処理
             $('#mode').val('upload');
             $('button[name="submit"]').trigger('click');
         });

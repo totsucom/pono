@@ -459,13 +459,6 @@ EOD;
                 </div>
             </div>
 
-            <!-- 課題画像の選択 --> <!--
-            <div class="custom-file mb-3">
-                <input type="file" class="custom-file-input" name="problem_picture" id="problem_picture" accept="image/jpeg,image/png" required>
-                <label class="custom-file-label" for="problem_picture" id="problem_picture_label">課題画像を選択...</label>
-                <div class="invalid-feedback">ファイルが選択されていません</div>
-            </div> -->
-
             <!-- 投稿ボタン -->
             <div class="col-12 clearfix">
                 <div class="float-right">

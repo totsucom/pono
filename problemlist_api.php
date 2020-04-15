@@ -23,11 +23,9 @@ $param['disp'] ※表示モード 存在する場合は DisplayProblemからの�
 */
 
 $join = "";
-$sqlconds = [];
-$sqlparams = [];
 
 //基本条件
-$sqlconds[] = '(`problem`.`publish` = 1 OR `problem`.`userid` = ?)';
+$sqlconds[] = '(`problem`.`publish` = 1 OR `problem`.`userid` = ?)'; //AND連結の配列
 $sqlparams[] = $_SESSION["ID"];
 
 //グレード
@@ -43,7 +41,6 @@ if (count($param['grades']) != 0) {
 //ロケーション(壁)
 if (count($param['locations']) != 0) {
     $ar = [];
-    //foreach (explode(',', $param['locations']) as $value) {
     foreach ($param['locations'] as $value) {
         if (strlen($value) > 0) {
             $ar[] = "`problem`.`location` LIKE ?";
@@ -51,6 +48,18 @@ if (count($param['locations']) != 0) {
         }
     }
     $sqlconds[] = '('.implode(' OR ', $ar).')';
+}
+
+if (count($disabledWalls) > 0) {
+    //無効な壁
+    $ar = [];
+    foreach ($disabledWalls as $key => $value) {
+        if (strlen($value) > 0) {
+            $ar[] = "`problem`.`location` NOT LIKE ?";
+            $sqlparams[] = '%,'.$key.',%';
+        }
+    }
+    $sqlconds[] = '('.implode(' AND ', $ar).')';
 }
 
 //タイトル

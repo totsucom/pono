@@ -34,15 +34,15 @@ if (isset($_POST['submit'],$_POST['wallname'])) {
             if (isset($_POST['active'])) {
                 $s = str_repeat('?,', count($_POST['active']) - 1) . '?';
 
-                $sql = "UPDATE `walls` SET `active` = 0 WHERE `id` IN (${s})";
+                $sql = "UPDATE `walls` SET `active` = 1 WHERE `id` IN (${s})";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute($_POST['active']);
 
-                $sql = "UPDATE `walls` SET `active` = 1 WHERE `id` NOT IN (${s})";
+                $sql = "UPDATE `walls` SET `active` = 0 WHERE `id` NOT IN (${s})";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute($_POST['active']);
             } else {
-                $sql = "UPDATE `walls` SET `active` = 1 WHERE 1";
+                $sql = "UPDATE `walls` SET `active` = 0 WHERE 1";
                 $stmt = $pdo->query($sql);
             }
 
@@ -194,17 +194,17 @@ EOD;
 EOD;
             }
         ?>
-        <form action="#" method="post" id="form1" enctype="multipart/form-data">
+        <form action="#" method="post" class="mx-1" id="form1" enctype="multipart/form-data">
 
-            <h3 class="mb-3">壁の一覧</h3>
+            <h3 class="mb-3 mx-1">壁の一覧</h3>
 
-            <div class="text-info mb-5">壁の追加や無効設定を行います。無効にするとその壁の課題が表示されなくなります。</div>
+            <div class="text-info mx-1 mb-5">壁の追加や無効設定を行います。無効にするとその壁の課題が表示されなくなります。</div>
 
             <table class="table table-bordered justify-content-center mb-3" id="walls_table">
                 <thead>
                     <tr>
                         <th class="text-center">名称</th>
-                        <th class="text-center">状態</th>
+                        <th class="text-center">有効</th>
                         <th class="text-center">表示順</th>
                     </tr>
                 </thead>
@@ -214,16 +214,22 @@ EOD;
                         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                             $names[] = $row['name'];
                             $name = htmlspecialchars($row['name'], ENT_QUOTES);
-                            $checked = ($row['active'] == 0) ? 'checked' : '';
+                            $checked = ($row['active'] == 1) ? 'checked' : '';
                             $id = 'wall' . $row['id'];
                             echo <<<EOD
                                 <tr>
-                                    <td class="text-center">{$name}<input type="HIDDEN" name="order[]" value="{$row['id']}"></td>
-                                    <td class="text-center">
+                                    <td class="text-center align-middle">{$name}<input type="HIDDEN" name="order[]" value="{$row['id']}"></td>
+                                    <td class="text-center align-middle">
+                                        <div class="custom-control custom-switch">
+                                            <input type="checkbox" class="custom-control-input" name="active[]" value="{$row['id']}" id="{$id}" {$checked}>
+                                            <label class="custom-control-label" for="{$id}"></label>
+                                        </div>
+                                        <!--
                                         <input class="form-check-input" type="checkbox" name="active[]" value="{$row['id']}" id="{$id}" {$checked} >
                                         <label class="form-check-label" for="{$id}">無効</label>
+                                        -->
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center align-middle">
                                         <button class="btn btn-secondary moveup">↑</button>
                                         <button class="btn btn-secondary movedown">↓</button>
                                     </td>

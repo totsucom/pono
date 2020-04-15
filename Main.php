@@ -22,6 +22,21 @@ try {
         $grade_cond = "AND `problem`.`grade` IN (${s})";
     }
 
+    $disabled_wall = '';
+    $params = [];
+    if (count($disabledWalls) > 0) {
+        //無効な壁
+        $ar = [];
+        foreach ($disabledWalls as $key => $value) {
+            if (strlen($value) > 0) {
+                $ar[] = "`problem`.`location` NOT LIKE ?";
+                $params[] = '%,'.$key.',%';
+            }
+        }
+        $disabled_wall = 'AND ('.implode(' AND ', $ar).')';
+    }
+    
+
     //problem.userid から userdata.name を取り出すために内部結合を行っている
     $sql =<<<EOD
 SELECT
@@ -34,36 +49,35 @@ INNER JOIN
 ON
     `problem`.`userid` = `userdata`.`id`
 WHERE
-    `problem`.`active` = 1 AND `problem`.`publish` = 1 {$grade_cond}
+    `problem`.`active` = 1 AND `problem`.`publish` = 1 {$grade_cond} {$disabled_wall}
 ORDER BY
     `problem`.`id` DESC
 LIMIT
     5
 EOD;
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
     //$row[]に課題データを読み込む
     $i = 0;
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        //if (strlen($row['imagefile_h']) > 0 && file_exists($directories['problem_image'].$row['imagefile_h'])) {//画像ファイルが存在するものだけ
-            $ar = [];
-            $ar['index'] = $i++;
-            $ar['href'] = './DisplayProblem.php?pid='.$row['id'];
-            $ar['cap'] = '';
-            if (strlen($row['title']) > 0) $ar['cap'] .= '"'.htmlspecialchars($row['title'], ENT_QUOTES).'" ';
-            if (isset($grades[$row['grade']])) $ar['cap'] .= $grades[$row['grade']].' ';
-            $c = '';
-            foreach (explode(',', $row['location']) as $value) {
-                if (strlen($value) > 0 && isset($walls[$value])) {
-                    $ar['cap'] .= $walls[$value];
-                    $c = ' ';
-                }
+        $ar = [];
+        $ar['index'] = $i++;
+        $ar['href'] = './DisplayProblem.php?pid='.$row['id'];
+        $ar['cap'] = '';
+        if (strlen($row['title']) > 0) $ar['cap'] .= '"'.htmlspecialchars($row['title'], ENT_QUOTES).'" ';
+        if (isset($grades[$row['grade']])) $ar['cap'] .= $grades[$row['grade']].' ';
+        $c = '';
+        foreach (explode(',', $row['location']) as $value) {
+            if (strlen($value) > 0 && isset($walls[$value])) {
+                $ar['cap'] .= $walls[$value];
+                $c = ' ';
             }
-            $ar['cap'] .= $c;
-            $ar['name'] = htmlspecialchars(is_null($row['dispname']) ? $row['name'] : $row['dispname'], ENT_QUOTES);
-            $ar['src'] = $urlpaths['problem_image'].$row['imagefile_h'];
-            $newProblem[] = $ar;
-        //}
+        }
+        $ar['cap'] .= $c;
+        $ar['name'] = htmlspecialchars(is_null($row['dispname']) ? $row['name'] : $row['dispname'], ENT_QUOTES);
+        $ar['src'] = $urlpaths['problem_image'].$row['imagefile_h'];
+        $newProblem[] = $ar;
     }
 } catch (PDOException $e) {
     $errorMessage = 'データベースの接続に失敗しました。'.$e->getMessage();
@@ -169,12 +183,12 @@ EOD;
                         <span class="sr-only">Next</span>
                     </a>
                 </div>
-                <a href="./ProblemList.php">さらに検索する...</a>
             </div>
         <?php } ?>
 
         <div class="wrapper mb-5">
             <h3>メニュー</h3>
+            <a href="./ProblemList.php">課題を探す</a><br>
             <a href="./SelectWalls.php">課題を投稿する</a><br>
         </div>
 
@@ -183,9 +197,9 @@ EOD;
                 echo <<<EOD
                     <div class="wrapper mb-5">
                         <h3>管理者メニュー</h3>
-                        <a href="./WallList.php">壁写真を管理</a><br>
-                        <a href="./UpdateWall.php">壁の更新</a><br><br>
-                        <a href="./ponomaster.php">壁マスター</a><br>
+                        <a href="./WallList.php">ベースの壁写真を管理</a><br>
+                        <a href="./UpdateWall.php">壁の更新処理</a><br><br>
+                        <a href="./PonoMaster.php">壁マスター</a><br>
                     </div>
 
 EOD;

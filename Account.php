@@ -222,7 +222,7 @@ EOD;
                     </div>
                 </div>
             </div>
-            <div class="text-left text-secondary mx-1 mb-4">投稿者の表示などに使用されます。設定されない場合はユーザーIDが使用されます。</div>
+            <div class="text-left text-info mx-1 mb-4">投稿者の表示などに使用されます。設定されない場合はユーザーIDが使用されます。</div>
 
             <!-- グレード -->
             <div class="row bg-light mx-1">
@@ -241,7 +241,7 @@ EOD;
                     ?>
                 </div>
             </div>
-            <div class="text-left text-secondary mx-1 mb-4">自分の登るグレードにチェックを入れます（複数可）。最新課題の表示や、課題検索のデフォルト値として使用されます。</div>
+            <div class="text-left text-info mx-1 mb-4">自分の登るグレードにチェックを入れます（複数可）。最新課題の表示や、課題検索のデフォルト値として使用されます。</div>
 
             <!-- 変更ボタン -->
             <div class="col-12 clearfix mx-1 mb-4">

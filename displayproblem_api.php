@@ -72,12 +72,38 @@ EOD;
             } else {
                 $result['climbed'] = -1;
             }
+
+
+            $sql =<<<EOD
+                SELECT
+                    `climbmovie`.`moviefile`, `climbmovie`.`imagefile_t`, `userdata`.`name`, `userdata`.`dispname`
+                FROM
+                    `climbmovie`
+                INNER JOIN
+                    `userdata`
+                ON
+                    `climbmovie`.`userid` = `userdata`.`id`
+                WHERE
+                    `climbmovie`.`problemid` = ?
+EOD;
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array($result['problemid']));
+
+            $result['movies'] = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $ar = [];
+                $ar['moviefile'] = $urlpaths['comp_movie'] . $row['moviefile'];     //動画パス  
+                $ar['imagefile_t'] = $urlpaths['comp_movie'] . $row['imagefile_t']; //サムネイルパス
+                $ar['name'] = htmlspecialchars((is_null($row['dispname'])) ? $row['name'] : $row['dispname'], ENT_QUOTES); //投稿者
+                $result['movies'][] = $ar;
+            }
         }
     } else {
         $result['error'] = 1;
         $errorMessage = '指定された課題が見つかりませんでした';
     }
 } catch (PDOException $e) {
+    $result['error'] = 1;
     $errorMessage = $e->getMessage();  //デバッグ
 }
 

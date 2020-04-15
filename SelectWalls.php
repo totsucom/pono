@@ -130,8 +130,24 @@ if (isset($_POST['submit'])) {
 
 //DBに接続してベースとなる壁を読み込む
 try {
-    $sql = "SELECT * FROM `wallpicture` ORDER BY `location`";
-    $stmt = $pdo->query($sql);
+    $params = [];
+    if (count($disabledWalls) > 0) {
+        //無効な壁
+        $ar = [];
+        foreach ($disabledWalls as $key => $value) {
+            if (strlen($value) > 0) {
+                $ar[] = "`location` NOT LIKE ?";
+                $params[] = '%,'.$key.',%';
+            }
+        }
+        $disabled_wall = implode(' AND ', $ar);
+    } else {
+        $disabled_wall = '1';
+    }
+
+    $sql = "SELECT * FROM `wallpicture` WHERE ${disabled_wall} ORDER BY `location`";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
 } catch (PDOException $e) {
     $errorMessage = 'データベースの接続に失敗しました。'.$e->getMessage();
@@ -191,7 +207,7 @@ EOD;
         <h5 class="text-center my-3">壁写真をアップロード</h5>
         <form class="form mb-5" action="#" method="post" id="form1" enctype="multipart/form-data">
             <!-- 課題画像の選択 -->
-            <div class="custom-file col ml-auto" id="input-file">
+            <div class="custom-file col ml-auto overflow-hidden align-middle" id="input-file">
                 <input type="file" class="custom-file-input" name="problem_picture" id="problem_picture" accept="image/jpeg,image/png">
                 <label class="custom-file-label" for="problem_picture" id="problem_picture_label">壁写真を選択...</label>
                 <div class="invalid-feedback">ファイルが選択されていません</div>
@@ -247,6 +263,9 @@ EOD;
                         <img class="rounded img-fluid d-block" alt="壁画像" id="preview" data-path="">
                     </div>
                     <div class="modal-footer">
+                        <div class="spinner-border >spinner-border-sm align-middle" role="status" id="uploading_spin" style="display:none">
+                            <span class="sr-only"></span>
+                        </div>
                         <button type="button" class="btn btn-primary" id="use-button">この壁を使用する</button>
                         <button type="button" class="btn btn-secondary" data-dismiss="modal" id="nouse-button">閉じる</button>
                     </div>
@@ -258,6 +277,7 @@ EOD;
     <script type="text/javascript" src="./js/jquery-3.4.1.min.js"></script>
     <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="./js/jquery.exif.js"></script>
+    <script type="text/javascript" src="./js/exif.js"></script>
     <script>$(function(){
         var selectMode = '';
 
@@ -272,7 +292,9 @@ EOD;
                 $('#problem_picture_label').html('壁写真を選択...');
             } else {
                 //画像の向きを取得
-                $(this).fileExif(function(exif) {
+                //$(this).fileExif(function(exif) { //同じ
+                $.fileExif(this.files[0], function (exif) {
+
                     var rotation = 0;
                     switch (exif.Orientation) {
                         case 3: rotation = 180; break;
@@ -284,25 +306,29 @@ EOD;
                     //プレビューのために画像をロード
                     var reader = new FileReader();
                     reader.onload = function (e) {
+                        if (exif !== false) {
+                            //必要に応じて回転
+                            var width, height;
+                            if (typeof exif.ImageWidth !== 'undefined') {
+                                width = exif.ImageWidth;
+                                height = exif.ImageHeight;
+                            } else {
+                                width = exif.PixelXDimension;
+                                height = exif.PixelYDimension;
+                            }
+                            var scale = 800 / width; //スマホの画像はでかいので、回転ついでに幅800に縮小
+                            width = 800;
+                            height *= scale;
 
-                        //必要に応じて回転
-                        var width, height;
-                        if (typeof exif.ImageWidth !== 'undefined') {
-                            width = exif.ImageWidth;
-                            height = exif.ImageHeight;
+                            ImgB64Resize(e.target.result, width, height, rotation, function(img_b64) {
+                                $('#preview').attr('src', img_b64);
+                                $('#testModal').modal('show');
+                            });
                         } else {
-                            width = exif.PixelXDimension;
-                            height = exif.PixelYDimension;
-                        }
-                        var scale = 800 / width; //スマホの画像はでかいので、回転ついでに幅800に縮小
-                        width = 800;
-                        height *= scale;
-
-                        ImgB64Resize(e.target.result, width, height, rotation, function(img_b64) {
-                            const preview = document.getElementById('preview');
-                            preview.src = img_b64;
+                            //Exif情報をとれない場合はそのまま表示
+                            $('#preview').attr('src', e.target.result);
                             $('#testModal').modal('show');
-                        });
+                        }
                     }
                     reader.readAsDataURL(e.target.files[0]);
                     var fileName = e.target.files[0].name;
@@ -367,6 +393,9 @@ EOD;
         $('#use-button').on('click', function () {
             if (selectMode == 'upload') {
                 $('#wallid').val('');
+
+                //スピンを回す
+                $('#uploading_spin').show();
             } else { //prepared
                 $('#wallid').val($('#preview').data('wallid'));
             }
